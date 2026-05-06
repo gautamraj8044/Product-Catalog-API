@@ -1,0 +1,41 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: product-catalog-api
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: Product Catalog API
+      API_PREFIX: /api/v1
+      DATABASE_URL: sqlite+aiosqlite:///./data/product_catalog.db
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: change-me-in-production
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      PRODUCT_LIST_CACHE_TTL_SECONDS: 120
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - product_catalog_data:/app/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: product-catalog-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  product_catalog_data:
+  redis_data:
