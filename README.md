@@ -1,15 +1,29 @@
 # Product Catalog API
 
-Production-ready Product Catalog API built with FastAPI, async SQLAlchemy, JWT authentication, RBAC, and Redis cache-aside caching.
+Async Product Catalog API built with FastAPI, SQLAlchemy, JWT authentication, role-based access control, and Redis cache-aside caching.
 
-## Features
+## Overview
 
-- JWT authentication with seeded admin and user accounts
-- RBAC for product CRUD operations
-- Async service and repository layers
-- Redis-backed cache-aside strategy for list endpoints
-- Pagination, filtering, and sorting
-- Rich OpenAPI documentation with examples and auth guidance
+This project provides a small but production-structured backend for managing products. It separates routing, services, repositories, schemas, and database models so the API surface stays simple while the internals remain maintainable.
+
+Core capabilities:
+
+- JWT login for authenticated access
+- Seeded default admin and user accounts
+- Admin-only product create, update, and delete operations
+- Admin-only user creation, including creating another admin
+- Product listing with pagination, filtering, sorting, and Redis-backed cache-aside behavior
+- OpenAPI/Swagger docs with request examples
+
+## Tech Stack
+
+- FastAPI
+- SQLAlchemy 2.x async
+- SQLite by default
+- Redis
+- Pydantic v2
+- JWT
+- `pwdlib` Argon2 password hashing
 
 ## Project Structure
 
@@ -40,32 +54,204 @@ app/
     product.py
   main.py
 tests/
+  test_auth.py
   test_product_service.py
 ```
 
+## Features
+
+### Authentication and Authorization
+
+- `POST /api/v1/auth/login` returns a Bearer token
+- Every product endpoint requires authentication
+- Only `admin` users can:
+  - create products
+  - update products
+  - delete products
+  - create new user accounts
+
+### Product API
+
+- List products with:
+  - `offset`
+  - `limit`
+  - `search`
+  - `category`
+  - `min_price`
+  - `max_price`
+  - `sort_by`
+  - `sort_order`
+- Retrieve a single product by ID
+- Create, update, and delete products
+
+### Caching
+
+- Product list responses use Redis cache-aside caching
+- Cache metadata is exposed through response headers:
+  - `X-Cache`
+  - `X-Cache-Key`
+  - `X-Cache-TTL`
+- Product mutations invalidate the product list cache namespace
+
+## Default Accounts
+
+These accounts are seeded automatically at startup if they do not already exist:
+
+- Admin: `admin@example.com` / `AdminPass123!`
+- User: `user@example.com` / `UserPass123!`
+
+## Admin Can Create More Accounts
+
+An authenticated admin can create:
+
+- another admin account
+- a normal user account
+
+Endpoint:
+
+```text
+POST /api/v1/auth/users
+```
+
+Example request:
+
+```json
+{
+  "email": "new-admin@example.com",
+  "password": "StrongPass123!",
+  "role": "admin"
+}
+```
+
+Allowed role values:
+
+- `admin`
+- `user`
+
+## API Endpoints
+
+### Auth
+
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/users` (admin only)
+
+### Products
+
+- `GET /api/v1/products`
+- `GET /api/v1/products/{product_id}`
+- `POST /api/v1/products` (admin only)
+- `PUT /api/v1/products/{product_id}` (admin only)
+- `DELETE /api/v1/products/{product_id}` (admin only)
+
 ## Quick Start
 
-1. Create a virtual environment and install dependencies.
-2. Copy `.env.example` to `.env` and adjust values if needed.
-3. Run the API:
+### Local Development
+
+1. Create a virtual environment.
+2. Install dependencies.
+3. Copy `.env.example` to `.env`.
+4. Start Redis if you want caching enabled.
+5. Run the API.
+
+Example:
 
 ```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e .
 uvicorn app.main:app --reload
 ```
 
-## Seeded Users
+Open Swagger UI:
 
-- `admin@example.com` / `AdminPass123!`
-- `user@example.com` / `UserPass123!`
+```text
+http://127.0.0.1:8000/docs
+```
 
-## Authentication
+## Environment Variables
 
-Use the `/api/v1/auth/login` endpoint to obtain an access token, then authorize from Swagger UI using the `Authorize` button and paste the token value.
+The app reads configuration from `.env`.
 
-Admins can create additional accounts with `POST /api/v1/auth/users` by sending `email`, `password`, and `role` (`admin` or `user`).
+```env
+APP_NAME=Product Catalog API
+API_PREFIX=/api/v1
+DATABASE_URL=sqlite+aiosqlite:///./product_catalog.db
+REDIS_URL=redis://localhost:6379/0
+JWT_SECRET_KEY=change-me-in-production
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+PRODUCT_LIST_CACHE_TTL_SECONDS=120
+```
 
-## Cache Strategy
+## Docker
 
-- Product list responses are cached in Redis using a cache-aside flow.
-- Product mutations invalidate product-list cache keys by namespace version bumping.
-- Product detail caching can be added later if read volume justifies it.
+Run the full stack with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Services:
+
+- API on `http://127.0.0.1:8000`
+- Redis on `localhost:6379`
+
+The compose setup persists:
+
+- SQLite data in `product_catalog_data`
+- Redis data in `redis_data`
+
+## Example Usage
+
+### 1. Login
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/auth/login" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\":\"admin@example.com\",\"password\":\"AdminPass123!\"}"
+```
+
+### 2. Create another admin
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/auth/users" ^
+  -H "Authorization: Bearer <TOKEN>" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\":\"second-admin@example.com\",\"password\":\"AdminPass456!\",\"role\":\"admin\"}"
+```
+
+### 3. Create a product
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/products" ^
+  -H "Authorization: Bearer <TOKEN>" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"name\":\"Mechanical Keyboard\",\"description\":\"Hot-swappable RGB keyboard\",\"category\":\"electronics\",\"price\":129.99}"
+```
+
+### 4. List products
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/products?limit=10&sort_by=price&sort_order=asc" ^
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+## Testing
+
+Install dev dependencies and run tests:
+
+```bash
+uv sync --extra dev
+.venv\Scripts\python -m pytest
+```
+
+Current automated coverage includes:
+
+- auth service and admin-only user creation route checks
+- product service cache behavior checks
+
+## Notes
+
+- If Redis is unavailable, the app falls back to running without cache instead of failing startup.
+- The default JWT secret is for development only and should be replaced in any real deployment.
+- SQLite is convenient for local use; for real production traffic, a stronger database choice is advisable.
