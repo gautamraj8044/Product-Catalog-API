@@ -201,6 +201,41 @@ The compose setup persists:
 - SQLite data in `product_catalog_data`
 - Redis data in `redis_data`
 
+### Docker Hub Deployment Workflow
+
+The repository includes a GitHub Actions workflow at `.github/workflows/docker-publish.yml`.
+
+It publishes the Docker image to Docker Hub when:
+
+- code is pushed to `main` or `master`
+- a Git tag like `v0.1.0` is pushed
+- the workflow is started manually from GitHub Actions
+
+Required GitHub repository secrets:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+Image tags produced by the workflow:
+
+- `latest` for the default branch
+- branch name tags such as `main`
+- version tags such as `v0.1.0`
+- a commit SHA tag
+
+Before using it, update the image name in `.github/workflows/docker-publish.yml` if you want a different Docker Hub repository path:
+
+```yaml
+IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/product-catalog-api
+```
+
+Example release flow:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## Example Usage
 
 ### 1. Login
