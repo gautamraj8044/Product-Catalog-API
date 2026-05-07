@@ -10,7 +10,10 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     database_url: str = "sqlite+aiosqlite:///./product_catalog.db"
     redis_url: str = "redis://localhost:6379/0"
-    jwt_secret_key: SecretStr = Field(..., min_length=16)
+    jwt_secret_key: SecretStr = Field(
+        default=SecretStr("change-me-in-development"),
+        min_length=16,
+    )
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     product_list_cache_ttl_seconds: int = 120
