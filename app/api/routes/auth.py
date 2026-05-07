@@ -13,7 +13,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     response_model=TokenResponse,
     summary="Authenticate a user and return a JWT token",
     description=(
-        "Submit seeded or registered user credentials to receive a Bearer token. "
+        "Submit bootstrap-admin or registered user credentials to receive a Bearer token. "
         "Use the token with the `Authorize` button in Swagger UI."
     ),
 )

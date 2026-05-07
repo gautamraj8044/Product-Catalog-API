@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -7,6 +8,10 @@ from fastapi.testclient import TestClient
 from app.api.dependencies import get_auth_service, get_current_user
 from app.api.routes.auth import router as auth_router
 from app.core.security import decode_token, hash_password
+from sqlalchemy import select
+
+from app.db.base import Base
+from app.db.session import AsyncSessionLocal, engine
 from app.db.models import User, UserRole
 from app.main import app as main_app
 from app.schemas.auth import TokenResponse, UserResponse
@@ -213,12 +218,38 @@ def test_create_user_route_allows_admin_to_create_another_admin():
 
 
 def test_login_and_access_protected_products_route_with_real_bearer_token():
+    async def prepare_login_user() -> None:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+
+        async with AsyncSessionLocal() as session:
+            existing_user = await session.scalar(
+                select(User).where(User.email == "bootstrap-admin@example.com")
+            )
+            if existing_user is None:
+                session.add(
+                    User(
+                        email="bootstrap-admin@example.com",
+                        hashed_password=hash_password("BootstrapPass123!"),
+                        role=UserRole.ADMIN,
+                    )
+                )
+            else:
+                existing_user.email = "bootstrap-admin@example.com"
+                existing_user.hashed_password = hash_password("BootstrapPass123!")
+                existing_user.role = UserRole.ADMIN
+            await session.commit()
+
+    asyncio.run(prepare_login_user())
     main_app.openapi_schema = None
 
     with TestClient(main_app) as client:
         login_response = client.post(
             "/api/v1/auth/login",
-            json={"email": "admin@example.com", "password": "AdminPass123!"},
+            json={
+                "email": "bootstrap-admin@example.com",
+                "password": "BootstrapPass123!",
+            },
         )
 
         assert login_response.status_code == 200

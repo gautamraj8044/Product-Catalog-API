@@ -22,28 +22,30 @@ settings = get_settings()
 redis_client: Redis | None = None
 
 
-async def seed_users() -> None:
+async def ensure_bootstrap_admin() -> None:
+    bootstrap_email = settings.bootstrap_admin_email
+    bootstrap_password = settings.bootstrap_admin_password
+
+    if (bootstrap_email is None) != (bootstrap_password is None):
+        raise RuntimeError(
+            "BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD must be set together."
+        )
+
+    if bootstrap_email is None or bootstrap_password is None:
+        return
+
     async with AsyncSessionLocal() as session:
-        existing_admin = await session.scalar(select(User).where(User.email == "admin@example.com"))
-        existing_user = await session.scalar(select(User).where(User.email == "user@example.com"))
+        existing_admin = await session.scalar(select(User).where(User.role == UserRole.ADMIN))
 
         if existing_admin is None:
             session.add(
                 User(
-                    email="admin@example.com",
-                    hashed_password=hash_password("AdminPass123!"),
+                    email=bootstrap_email,
+                    hashed_password=hash_password(bootstrap_password.get_secret_value()),
                     role=UserRole.ADMIN,
                 )
             )
-        if existing_user is None:
-            session.add(
-                User(
-                    email="user@example.com",
-                    hashed_password=hash_password("UserPass123!"),
-                    role=UserRole.USER,
-                )
-            )
-        await session.commit()
+            await session.commit()
 
 
 @asynccontextmanager
@@ -53,7 +55,7 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
 
-    await seed_users()
+    await ensure_bootstrap_admin()
 
     try:
         redis_client = Redis.from_url(settings.redis_url, decode_responses=False)

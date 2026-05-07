@@ -9,7 +9,7 @@ This project provides a small but production-structured backend for managing pro
 Core capabilities:
 
 - JWT login for authenticated access
-- Seeded default admin and user accounts
+- Optional one-time bootstrap admin creation through environment variables
 - Admin-only product create, update, and delete operations
 - Admin-only user creation, including creating another admin
 - Product listing with pagination, filtering, sorting, and Redis-backed cache-aside behavior
@@ -93,12 +93,16 @@ tests/
   - `X-Cache-TTL`
 - Product mutations invalidate the product list cache namespace
 
-## Default Accounts
+## Bootstrap Admin
 
-These accounts are seeded automatically at startup if they do not already exist:
+The app does not create permanent default credentials.
 
-- Admin: `admin@example.com` / `AdminPass123!`
-- User: `user@example.com` / `UserPass123!`
+For first-time setup, you can optionally provide a bootstrap admin through environment variables:
+
+- `BOOTSTRAP_ADMIN_EMAIL`
+- `BOOTSTRAP_ADMIN_PASSWORD`
+
+If both values are set and no admin user exists yet, the app creates one admin account on startup. If an admin already exists, startup leaves user data unchanged.
 
 ## Admin Can Create More Accounts
 
@@ -159,6 +163,8 @@ Example:
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e .
+set BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+set BOOTSTRAP_ADMIN_PASSWORD=AdminPass123!
 uvicorn app.main:app --reload
 ```
 
@@ -181,6 +187,8 @@ JWT_SECRET_KEY=change-me-in-production
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 PRODUCT_LIST_CACHE_TTL_SECONDS=120
+BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+BOOTSTRAP_ADMIN_PASSWORD=ChangeMe123!
 ```
 
 ## Docker
@@ -243,7 +251,7 @@ git push origin v0.1.0
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/v1/auth/login" ^
   -H "Content-Type: application/json" ^
-  -d "{\"email\":\"admin@example.com\",\"password\":\"AdminPass123!\"}"
+  -d "{\"email\":\"admin@example.com\",\"password\":\"<BOOTSTRAP_ADMIN_PASSWORD>\"}"
 ```
 
 ### 2. Create another admin
@@ -289,4 +297,5 @@ Current automated coverage includes:
 
 - If Redis is unavailable, the app falls back to running without cache instead of failing startup.
 - The default JWT secret is for development only and should be replaced in any real deployment.
+- `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` must be set together if you use bootstrap admin creation.
 - SQLite is convenient for local use; for real production traffic, a stronger database choice is advisable.

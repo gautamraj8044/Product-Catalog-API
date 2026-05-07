@@ -9,3 +9,4 @@ __pycache__
 product_catalog.db
 pytest-cache-files-*
 uv.lock
+.env
