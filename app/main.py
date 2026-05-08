@@ -14,9 +14,8 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.products import router as products_router
 from app.core.config import get_settings
 from app.core.security import hash_password
-from app.db.base import Base
 from app.db.models import User, UserRole
-from app.db.session import AsyncSessionLocal, engine
+from app.db.session import AsyncSessionLocal
 
 settings = get_settings()
 redis_client: Redis | None = None
@@ -51,9 +50,6 @@ async def ensure_bootstrap_admin() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global redis_client
-
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all)
 
     await ensure_bootstrap_admin()
 

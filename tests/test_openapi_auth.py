@@ -1,13 +1,9 @@
-from fastapi.testclient import TestClient
-
 from app.main import app
 
 
 def test_openapi_security_scheme_matches_protected_operations():
     app.openapi_schema = None
-
-    with TestClient(app) as client:
-        schema = client.get("/openapi.json").json()
+    schema = app.openapi()
 
     security_schemes = schema["components"]["securitySchemes"]
     assert "BearerAuth" in security_schemes

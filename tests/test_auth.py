@@ -2,8 +2,10 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
+from asyncpg import PostgresError
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.dependencies import get_auth_service, get_current_user
 from app.api.routes.auth import router as auth_router
@@ -240,7 +242,11 @@ def test_login_and_access_protected_products_route_with_real_bearer_token():
                 existing_user.role = UserRole.ADMIN
             await session.commit()
 
-    asyncio.run(prepare_login_user())
+    try:
+        asyncio.run(prepare_login_user())
+    except (OSError, SQLAlchemyError, PostgresError) as exc:
+        pytest.skip(f"PostgreSQL is not available for integration test: {exc}")
+
     main_app.openapi_schema = None
 
     with TestClient(main_app) as client:

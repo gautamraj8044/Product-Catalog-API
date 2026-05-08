@@ -19,7 +19,7 @@ Core capabilities:
 
 - FastAPI
 - SQLAlchemy 2.x async
-- SQLite by default
+- PostgreSQL
 - Redis
 - Pydantic v2
 - JWT
@@ -154,15 +154,21 @@ Allowed role values:
 1. Create a virtual environment.
 2. Install dependencies.
 3. Copy `.env.example` to `.env`.
-4. Start Redis if you want caching enabled.
+4. Start PostgreSQL and Redis if you want the full stack locally.
 5. Run the API.
 
 Example:
 
 ```bash
+docker run --name my-postgres ^
+  -e POSTGRES_PASSWORD=<YOUR_POSTGRES_PASSWORD> ^
+  -p 5432:5432 ^
+  -d postgres:latest
+
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e .
+set POSTGRES_PASSWORD=<YOUR_POSTGRES_PASSWORD>
 set BOOTSTRAP_ADMIN_EMAIL=admin@example.com
 set BOOTSTRAP_ADMIN_PASSWORD=AdminPass123!
 uvicorn app.main:app --reload
@@ -181,7 +187,12 @@ The app reads configuration from `.env`.
 ```env
 APP_NAME=Product Catalog API
 API_PREFIX=/api/v1
-DATABASE_URL=sqlite+aiosqlite:///./product_catalog.db
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_HOST_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=change-me
+POSTGRES_DB=product_catalog
 REDIS_URL=redis://localhost:6379/0
 JWT_SECRET_KEY=change-me-in-production
 JWT_ALGORITHM=HS256
@@ -202,11 +213,14 @@ docker compose up --build
 Services:
 
 - API on `http://127.0.0.1:8000`
+- PostgreSQL on `localhost:5432`
 - Redis on `localhost:6379`
+
+If you already have a local PostgreSQL service on port `5432`, set `POSTGRES_HOST_PORT` to another host port such as `5433`, and set the app's `POSTGRES_PORT` or `DATABASE_URL` to the same host port when connecting from your machine.
 
 The compose setup persists:
 
-- SQLite data in `product_catalog_data`
+- PostgreSQL data in `postgres_data`
 - Redis data in `redis_data`
 
 ### Docker Hub Deployment Workflow
@@ -298,4 +312,5 @@ Current automated coverage includes:
 - If Redis is unavailable, the app falls back to running without cache instead of failing startup.
 - The default JWT secret is for development only and should be replaced in any real deployment.
 - `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` must be set together if you use bootstrap admin creation.
-- SQLite is convenient for local use; for real production traffic, a stronger database choice is advisable.
+- The API expects PostgreSQL and reads connection details from `DATABASE_URL` or the `POSTGRES_*` environment variables.
+- Apply schema changes with Alembic before starting the app: `alembic upgrade head`

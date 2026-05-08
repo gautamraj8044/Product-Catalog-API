@@ -9,17 +9,39 @@ services:
     environment:
       APP_NAME: Product Catalog API
       API_PREFIX: /api/v1
-      DATABASE_URL: sqlite+aiosqlite:///./data/product_catalog.db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-product_catalog}
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: change-me-in-production
       JWT_ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
       PRODUCT_LIST_CACHE_TTL_SECONDS: 120
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:latest
+    container_name: my-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-product_catalog}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
-      - product_catalog_data:/app/data
+      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
   redis:
@@ -37,5 +59,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  product_catalog_data:
+  postgres_data:
   redis_data:
